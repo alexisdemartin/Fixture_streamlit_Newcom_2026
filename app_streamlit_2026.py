@@ -5,31 +5,56 @@ def generar_fixture(equipos):
     if n < 4:
         return None, "Se necesitan al menos 4 equipos para que cada uno juegue 3 partidos."
 
-    # 1. Generar todos los pares posibles (i < j) para evitar duplicados
+    # 1. Generar todos los pares posibles (i < j)
     todos_los_pares = []
     for i in range(n):
         for j in range(i + 1, n):
             todos_los_pares.append((equipos[i], equipos[j]))
 
-    # 2. Ordenar para priorizar a los primeros equipos
-    todos_los_pares.sort(key=lambda par: (equipos.index(par[0]), equipos.index(par[1])))
-
-    # 3. Seleccionar enfrentamientos asegurando que ningún equipo supere 3 partidos
+    # 2. Contador de partidos por equipo
     partidos_por_equipo = {eq: 0 for eq in equipos}
+
+    # 3. Selección equilibrada: mientras haya equipos con menos de 3 partidos
     seleccionados = []
+    # Ordenar equipos por los que menos partidos tienen (para equilibrar)
+    # pero también priorizar a los primeros equipos cuando hay empate
+    while any(partidos_por_equipo[eq] < 3 for eq in equipos):
+        # Ordenar equipos: primero los que menos partidos tienen,
+        # y entre ellos, los que aparecen primero en la lista original
+        equipos_ordenados = sorted(
+            equipos,
+            key=lambda eq: (partidos_por_equipo[eq], equipos.index(eq))
+        )
+        # Tomar el primer equipo que aún necesite partidos
+        eq1 = next(eq for eq in equipos_ordenados if partidos_por_equipo[eq] < 3)
 
-    for par in todos_los_pares:
-        eq1, eq2 = par
-        if partidos_por_equipo[eq1] < 3 and partidos_por_equipo[eq2] < 3:
-            seleccionados.append(par)
-            partidos_por_equipo[eq1] += 1
-            partidos_por_equipo[eq2] += 1
+        # Buscar un rival que también necesite partidos y que no haya jugado ya contra eq1
+        rival = None
+        for candidato in equipos_ordenados:
+            if candidato == eq1:
+                continue
+            if partidos_por_equipo[candidato] >= 3:
+                continue
+            # Verificar que no hayan jugado antes
+            par = tuple(sorted([eq1, candidato]))
+            if par not in seleccionados:
+                rival = candidato
+                break
 
-    # Verificar que todos los equipos tengan exactamente 3 partidos
-    if any(partidos_por_equipo[eq] != 3 for eq in equipos):
-        return None, "No se pudo generar un fixture válido con exactamente 3 partidos por equipo. Intenta con más equipos."
+        if rival is None:
+            # No se encontró rival disponible (puede ocurrir en casos extremos)
+            return None, "No se pudo generar un fixture válido con exactamente 3 partidos por equipo. Intenta con más equipos."
 
-    # 4. Asignar fechas y canchas evitando que un equipo juegue dos veces en la misma fecha
+        # Agregar el partido
+        par = tuple(sorted([eq1, rival]))
+        seleccionados.append(par)
+        partidos_por_equipo[eq1] += 1
+        partidos_por_equipo[rival] += 1
+
+    # 4. Ordenar los partidos para que los primeros equipos aparezcan primero
+    seleccionados.sort(key=lambda par: (equipos.index(par[0]), equipos.index(par[1])))
+
+    # 5. Asignar fechas y canchas evitando que un equipo juegue dos veces en la misma fecha
     fixture = {}
     canchas = ["Cancha 1", "Cancha 2", "Cancha 3"]
     fecha_num = 1
@@ -47,7 +72,6 @@ def generar_fixture(equipos):
                 equipos_en_fecha.add(eq1)
                 equipos_en_fecha.add(eq2)
                 if len(partidos_en_fecha) == 3:
-                    # Esta fecha está completa; el resto va a nuevos_restantes
                     idx = partidos_restantes.index(par)
                     nuevos_restantes.extend(partidos_restantes[idx + 1:])
                     break
