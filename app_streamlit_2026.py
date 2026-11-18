@@ -8,43 +8,28 @@ def generar_fixture(equipos):
     if n < 4:
         return None, "Se necesitan al menos 4 equipos para que cada uno juegue 3 partidos."
 
-    # Generar todos los enfrentamientos posibles (pares únicos)
-    todos_los_pares = []
+    # Construir enfrentamientos de forma equilibrada:
+    # cada equipo i juega contra i+1, i+2, i+3 (circular)
+    enfrentamientos = set()
     for i in range(n):
-        for j in range(i + 1, n):
-            todos_los_pares.append((equipos[i], equipos[j]))
+        for offset in [1, 2, 3]:
+            j = (i + offset) % n
+            if i != j:
+                par = tuple(sorted([equipos[i], equipos[j]]))
+                enfrentamientos.add(par)
 
-    # Contador de partidos por equipo
-    partidos_por_equipo = {eq: 0 for eq in equipos}
-    # Lista de enfrentamientos seleccionados
-    seleccionados = []
-
-    # Ordenar los pares para priorizar a los primeros equipos:
-    # primero los que involucran al equipo 1, luego al 2, etc.
-    todos_los_pares.sort(key=lambda par: (equipos.index(par[0]), equipos.index(par[1])))
-
-    # Seleccionar enfrentamientos asegurando que ningún equipo supere 3 partidos
-    for par in todos_los_pares:
-        eq1, eq2 = par
-        if partidos_por_equipo[eq1] < 3 and partidos_por_equipo[eq2] < 3:
-            seleccionados.append(par)
-            partidos_por_equipo[eq1] += 1
-            partidos_por_equipo[eq2] += 1
-        if all(partidos_por_equipo[eq] == 3 for eq in equipos):
-            break
-
-    # Verificar que todos los equipos tengan exactamente 3 partidos
-    if any(partidos_por_equipo[eq] != 3 for eq in equipos):
-        return None, "No se pudo generar un fixture válido con 3 partidos por equipo. Intenta con más equipos."
+    partidos = list(enfrentamientos)
+    # Ordenar para que los primeros equipos aparezcan primero
+    partidos.sort(key=lambda par: (equipos.index(par[0]), equipos.index(par[1])))
 
     # Asignar fechas y canchas evitando que un equipo juegue dos veces en la misma fecha
     fixture = {}
     canchas = ["Cancha 1", "Cancha 2", "Cancha 3"]
     fecha_num = 1
-    equipos_en_fecha = set()  # Equipos que ya juegan en la fecha actual
+    equipos_en_fecha = set()
     partidos_en_fecha = 0
 
-    for par in seleccionados:
+    for par in partidos:
         eq1, eq2 = par
         # Si alguno de los equipos ya juega en esta fecha, o la fecha ya tiene 3 partidos,
         # pasamos a la siguiente fecha
@@ -53,7 +38,6 @@ def generar_fixture(equipos):
             equipos_en_fecha = set()
             partidos_en_fecha = 0
 
-        # Asignar cancha (rotativa dentro de la fecha)
         cancha = canchas[partidos_en_fecha % 3]
         if fecha_num not in fixture:
             fixture[fecha_num] = {}
